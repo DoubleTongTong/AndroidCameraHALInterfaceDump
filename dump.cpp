@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #define LOGSIZE 2048
+#define MALLOCLOGSIZE 10240
 #define PATHSIZE 512
 
 void WriteToFile(const char* filePath, const char* str, int len)
@@ -36,35 +37,38 @@ void PrintConfigureStreams(const struct camera3_device* device,
     int return_value)
 {
     static int count = 0;
-    char log[LOGSIZE], filePath[PATHSIZE];
+    char* log = (char*)malloc(MALLOCLOGSIZE);
+    char filePath[PATHSIZE];
 
-    int len = snprintf(log, sizeof(log), "camera3_device=%p\n"
-                                         "stream_list=%p\n"
-                                         "stream_list->num_streams=%u\n"
-                                         "stream_list->operation_mode=0x%x\n"
-                                         "stream_list->streams=%p\n\n",
+    int len = snprintf(log, MALLOCLOGSIZE, "camera3_device=%p\n"
+                                           "stream_list=%p\n"
+                                           "stream_list->num_streams=%u\n"
+                                           "stream_list->operation_mode=0x%x\n"
+                                           "stream_list->streams=%p\n\n",
         device, stream_list, stream_list->num_streams, stream_list->operation_mode, stream_list->streams);
     for (int i = 0; i < stream_list->num_streams; i++)
     {
         camera3_stream_t* stream = stream_list->streams[i];
-        len += snprintf(log, sizeof(log), "stream[%d]=%p\n",
-                                          "stream->stream_type=%d\n"
-                                          "stream->width=%u\n"
-                                          "stream->height=%u\n"
-                                          "stream->format=%d\n"
-                                          "stream->usage=%u\n"
-                                          "stream->max_buffers=%u\n"
-                                          "stream->priv=%p\n"
-                                          "stream->data_space=%u\n"
-                                          "stream->rotation=%d\n\n"
+        len += snprintf(log + len, MALLOCLOGSIZE - len, "stream[%d]=%p\n"
+                                                        "stream->stream_type=%d\n"
+                                                        "stream->width=%u\n"
+                                                        "stream->height=%u\n"
+                                                        "stream->format=%d\n"
+                                                        "stream->usage=%u\n"
+                                                        "stream->max_buffers=%u\n"
+                                                        "stream->priv=%p\n"
+                                                        "stream->data_space=%u\n"
+                                                        "stream->rotation=%d\n\n",
             i, stream,
             stream->stream_type, stream->width, stream->height, stream->format, stream->usage, stream->max_buffers, stream->priv, stream->data_space, stream->rotation);
     }
 
-    len += snprintf(log, sizeof(log), "return_value=%d\n", return_value);
+    len += snprintf(log + len, MALLOCLOGSIZE - len, "return_value=%d\n", return_value);
 
     snprintf(filePath, sizeof(filePath), "/data/vendor/camera/tlog/configure_streams/configure_streams_%x_%d.txt", stream_list->operation_mode, count++);
     WriteToFile(filePath, log, len);
+
+    free(log);
 }
 
 void PrintProcessCaptureRequest(const struct camera3_device* device,
@@ -87,7 +91,7 @@ void PrintProcessCaptureRequest(const struct camera3_device* device,
     {
         const camera3_stream_buffer_t* buffer = request->output_buffers + i;
 
-        len += snprintf(log, sizeof(log), "output_buffers[%d]=%p\n"
+        len += snprintf(log + len, sizeof(log) - len, "output_buffers[%d]=%p\n"
                                           "buffer->stream=%p\n"
                                           "buffer->buffer=%p\n"
                                           "buffer->status=%d\n"
@@ -97,7 +101,7 @@ void PrintProcessCaptureRequest(const struct camera3_device* device,
             buffer->stream, buffer->buffer, buffer->status, buffer->acquire_fence, buffer->release_fence);
     }
 
-    len += snprintf(log, sizeof(log), "return_value=%d\n", return_value);
+    len += snprintf(log + len, sizeof(log) - len, "return_value=%d\n", return_value);
 
     snprintf(filePath, sizeof(filePath), "/data/vendor/camera/tlog/process_capture_request/process_capture_request_num%u_%d.txt", request->frame_number, count++);
     WriteToFile(filePath, log, len);
@@ -108,7 +112,7 @@ void PrintFlush(const struct camera3_device* device, int return_value)
     static int count = 0;
     char log[LOGSIZE], filePath[PATHSIZE];
 
-    len = snprintf(log, sizeof(log), "camera3_device=%p\n"
+    int len = snprintf(log, sizeof(log), "camera3_device=%p\n"
                                      "return_value=%d\n",
         device, return_value);
 
@@ -137,7 +141,7 @@ void PrintProcessCaptureResult(const struct camera3_callback_ops* ops,
     {
         const camera3_stream_buffer_t* buffer = result->output_buffers + i;
 
-        len += snprintf(log, sizeof(log), "output_buffers[%d]=%p\n"
+        len += snprintf(log + len, sizeof(log) - len, "output_buffers[%d]=%p\n"
             "buffer->stream=%p\n"
             "buffer->buffer=%p\n"
             "buffer->status=%d\n"
@@ -165,15 +169,15 @@ void PrintNotify(const struct camera3_callback_ops* ops,
 
     if (msg->type == CAMERA3_MSG_SHUTTER)
     {
-        len += snprintf(log, sizeof(log), "msg->message.shutter.frame_number=%u\n"
-                                          "msg->message.shutter.timestamp=%llu\n\n",
+        len += snprintf(log + len, sizeof(log) - len, "msg->message.shutter.frame_number=%u\n"
+                                                      "msg->message.shutter.timestamp=%llu\n\n",
             msg->message.shutter.frame_number, msg->message.shutter.timestamp);
     }
     else if (msg->type == CAMERA3_MSG_ERROR)
     {
-        len += snprintf(log, sizeof(log), "msg->message.error.frame_number=%u\n"
-                                          "msg->message.error.error_stream=%p\n"
-                                          "msg->message.error.error_code=&d\n\n",
+        len += snprintf(log + len, sizeof(log) - len, "msg->message.error.frame_number=%u\n"
+                                                      "msg->message.error.error_stream=%p\n"
+                                                      "msg->message.error.error_code=%d\n\n",
             msg->message.error.frame_number, msg->message.error.error_stream, msg->message.error.error_code);
     }
 
